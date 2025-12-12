@@ -13,9 +13,12 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev
     - name: Build
       run: pushd server && cargo build --package server --bin server --verbose && popd
 
