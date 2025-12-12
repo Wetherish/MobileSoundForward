@@ -54,7 +54,7 @@ async fn main() -> io::Result<()> {
     println!("Listening for audio on {}", socket.local_addr()?);
 
     let mut buf = BytesMut::with_capacity(HEADER_SIZE + PAYLOAD_SIZE);
-
+    println!("{}", socket.local_addr()?);
     loop {
         let len = socket.recv_buf(&mut buf).await?;
 
