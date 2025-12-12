@@ -26,8 +26,6 @@ async fn main() -> io::Result<()> {
         buffer_size: cpal::BufferSize::Default,
     };
 
-    // Ring Buffer: Producer (UDP thread) -> Consumer (Audio Callback)
-    // Capacity 48000 samples * 2 channels * 0.2s = ~19200 samples
     let ring = HeapRb::<i16>::new(48000 * 2);
     let (mut producer, mut consumer) = ring.split();
 
@@ -37,13 +35,11 @@ async fn main() -> io::Result<()> {
         .build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                // Audio Callback
                 for sample in data.iter_mut() {
                     if let Some(s) = consumer.try_pop() {
-                        // Convert i16 to f32 range [-1.0, 1.0]
                         *sample = s as f32 / i16::MAX as f32;
                     } else {
-                        *sample = 0.0; // Underrun silence
+                        *sample = 0.0;
                     }
                 }
             },
@@ -54,7 +50,6 @@ async fn main() -> io::Result<()> {
 
     stream.play().expect("Failed to play stream");
 
-    // 2. Setup UDP Socket
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", PC_PORT)).await?;
     println!("Listening for audio on {}", socket.local_addr()?);
 
@@ -68,18 +63,10 @@ async fn main() -> io::Result<()> {
             let timestamp = buf.get_i32();
             let mut pcm_data = buf.copy_to_bytes(len - HEADER_SIZE);
 
-            // Convert raw little-endian bytes to i16 samples
             while pcm_data.remaining() >= 2 {
-                let sample = pcm_data.get_i16_le(); // Android AudioRecord produces Little Endian
+                let sample = pcm_data.get_i16_le();
                 let _ = producer.try_push(sample);
             }
-
-            println!(
-                "Received seq={}, ts={}, samples={}",
-                seq_id,
-                timestamp,
-                (len - HEADER_SIZE) / 2
-            );
         }
         buf.clear();
     }
